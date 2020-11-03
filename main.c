@@ -7,10 +7,9 @@
 #include "serial.h"
 #include "timer.h"
 
-int readValueADC = 0; // define an integer to save adc read value
-uint8_t duty = 0;
+volatile uint8_t ADC_val; //adc value
 
-unsigned int ADC_read(unsigned char chnl);
+unsigned int ADC_read();
 void init_ADC();
 void set_PWM_Output(uint8_t duty);
 
@@ -22,10 +21,10 @@ int main(void)
 	timer2_init();
 	LED_init();
 	init_ADC();
+	
 
 	while (1)
 	{
-
 	}
 	return 0;
 }
@@ -33,23 +32,21 @@ int main(void)
 
 void init_ADC()
 {
-	ADMUX = (1 << REFS0); // Selecting internal reference voltage For Aref=AVcc
-	ADCSRA = (1 << ADEN) | (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // Enable ADC also set Prescaler as 128
-
+	ADMUX |= (1<<REFS0); //set reference voltage to 5v (AREF)
+	ADMUX |= (1 << ADLAR); //left adjusted
+	ADMUX = 0x40;        //channel A0 selected
+	ADCSRA = (1 << ADEN) | (1 << ADPS1) | (1 << ADPS0); // Enable ADC also set Prescaler 8
+	ADCSRA |= (1 << ADATE); // enable auto trigger
+    ADCSRA |= (1 << ADSC);   // start conversion
+	ADCSRA |= (1 << ADIE);   // enable interrupts 
 }
 
 
-unsigned int ADC_read(unsigned char chnl)
+unsigned int ADC_read()
 {
-	ADCSRA=(1<<ADEN)|(1<<ADPS1)|(1<<ADPS0); //Enable ADC with Prescalar=Fcpu/128 
-
-	chnl = chnl & 0b00000111; // select adc channel between 0 to 7
-	ADMUX = 0x40;        //channel A0 selected
-	ADMUX |= (1<<REFS0)|(1<<REFS1); //set reference voltage to 5v (AREF)
-	ADCSRA |= (1 << ADSC);   // start conversion
-	while (!(ADCSRA & (1 << ADIF)));   // wait for ADIF conversion complete return
-	ADCSRA |= (1 << ADIF);   // clear ADIF when conversion complete by writing 1
-	return (ADC); //return calculated ADC value
+    while (!(ADCSRA & (1 << ADIF)));   // wait for ADIF conversion complete return
+    ADCSRA |= (1 << ADIF);   // clear ADIF when conversion complete by writing 1
+    return (ADC); //return calculated ADC value	
 }
 
 void set_PWM_Output(uint8_t duty)
@@ -57,25 +54,14 @@ void set_PWM_Output(uint8_t duty)
    OCR0A=duty;
 }
 
+ISR(ADC_vect) { //Interrupt
+    ADC_val = ADC_read();  // Save ADC value
+	printf("%d\n", ADC_val);	
+}
+
 ISR(TIMER2_COMPA_vect)
-{
-	
-	printf("%d\n", readValueADC);
-
-	readValueADC = ADC_read(0);   //save adc read value in integer
-	
-	if (readValueADC >= 256)
-	{
-		duty = 255;
-		set_PWM_Output(duty);
-	}
-
-	else if (readValueADC <= 255)
-	{
-		duty = readValueADC;
-		set_PWM_Output(duty);
-
-	}
+{	
+	set_PWM_Output(ADC_val);
 }
 
 
