@@ -34,7 +34,7 @@ void init_ADC()
 {
 	ADMUX |= (1<<REFS0); //set reference voltage to 5v (AREF)
 	ADMUX |= (1 << ADLAR); //left adjusted
-	ADMUX = 0x40;        //channel A0 selected
+	
 	ADCSRA = (1 << ADEN) | (1 << ADPS1) | (1 << ADPS0); // Enable ADC also set Prescaler 8
 	ADCSRA |= (1 << ADATE); // enable auto trigger
     ADCSRA |= (1 << ADSC);   // start conversion
@@ -46,7 +46,7 @@ unsigned int ADC_read()
 {
     while (!(ADCSRA & (1 << ADIF)));   // wait for ADIF conversion complete return
     ADCSRA |= (1 << ADIF);   // clear ADIF when conversion complete by writing 1
-    return (ADC); //return calculated ADC value	
+    return (ADCH); //return calculated ADC value	
 }
 
 void set_PWM_Output(uint8_t duty)
@@ -59,7 +59,7 @@ ISR(ADC_vect) { //Interrupt
 	printf("%d\n", ADC_val);	
 }
 
-ISR(TIMER2_COMPA_vect)
+ISR(TIMER2_COMPA_vect)//Interrupt
 {	
 	set_PWM_Output(ADC_val);
 }
